@@ -1,0 +1,30 @@
+version: '3.8'
+
+services:
+  # Backend API Container
+  api:
+    build: ./backend
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./backend:/usr/src/app
+    environment:
+      - DATABASE_URL=postgres://user:password@db:5432/messaging_db
+    depends_on:
+      - db
+
+  # PostgreSQL Database Container
+  db:
+    image: postgres:15
+    restart: always
+    environment:
+      - POSTGRES_USER=user
+      - POSTGRES_PASSWORD=password
+      - POSTGRES_DB=messaging_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+volumes:
+  postgres_data:
