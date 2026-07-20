@@ -148,3 +148,6 @@ Thumbs.db
 # Expo/React Native
 .expo/ 
 dist/ 
+
+# Uploads
+backend/uploads/
