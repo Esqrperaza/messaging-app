@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { KeyboardAvoidingView, Platform, View, TextInput, Button, FlatList, Text, StyleSheet } from 'react-native';
+import { KeyboardAvoidingView, Platform, View, TextInput, Button, FlatList, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { io, Socket } from 'socket.io-client';
 import { useLocalSearchParams, Stack } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -143,6 +143,7 @@ useEffect(() => {
             />
       <FlatList
         style={{ flex: 1}}
+        contentContainerStyle={{ paddingBottom: 15, paddingTop: 15 }}
         ref={flatListRef}
         data={chatMessages}
         keyExtractor={(item, index) => index.toString()}
@@ -163,13 +164,23 @@ useEffect(() => {
             );
         }}
         />
+    <View style={styles.inputContainer}>
       <TextInput 
-        style={styles.input} 
+        style={styles.textInput} 
         value={message} 
         onChangeText={setMessage} 
         placeholder="type message..."
+        placeholderTextColor="#8E8E93"
+        multiline={true}
       />
-      <Button title="send" onPress={sendMessage} />
+      <TouchableOpacity
+        style={styles.sendButton}
+        onPress={sendMessage}
+        disabled={!message.trim()}
+       >
+        <Text style={styles.sendButtonText}>send</Text>
+        </TouchableOpacity>
+        </View>
     </KeyboardAvoidingView>
   );
 }
@@ -177,7 +188,7 @@ useEffect(() => {
 const styles = StyleSheet.create({
   container: { 
     flex: 1, 
-    padding: 20, 
+    // padding: 20, 
     paddingTop: 50 
 },
   input: { 
@@ -198,12 +209,12 @@ const styles = StyleSheet.create({
   maxWidth: '75%',
 },
 myBubble: {
-  backgroundColor: '#007AFF', // Blue bubble
+  backgroundColor: '#007AFF', 
   alignSelf: 'flex-end',
-  borderBottomRightRadius: 2, // Sharp corner gives it a chat-bubble look
+  borderBottomRightRadius: 2, 
 },
 theirBubble: {
-  backgroundColor: '#E5E5EA', // Light gray bubble
+  backgroundColor: '#E5E5EA', 
   alignSelf: 'flex-start',
   borderBottomLeftRadius: 2,
 },
@@ -213,4 +224,41 @@ myText: {
 theirText: { 
     color: '#000' 
 },
+inputContainer: {
+    flexDirection: 'row',
+    alignItems: 'flex-end', // Aligns to the bottom if the text box grows
+    paddingHorizontal: 10,
+    // paddingVertical: 5,
+    paddingTop: 5,
+    paddingBottom: 35,
+
+    // backgroundColor: '#fff',
+    borderTopWidth: 0.25,
+    borderColor: '#d4cfcfff',
+  },
+  textInput: {
+    flex: 1,
+    backgroundColor: '#e6e6eaff',
+    color:'#000',
+    borderRadius: 20,
+    paddingHorizontal: 15,
+    paddingTop: 12, // Keeps text centered vertically when multiline
+    paddingBottom: 12,
+    fontSize: 16,
+    maxHeight: 100, // Stops the box from taking over the screen if they write an essay
+  },
+  sendButton: {
+    marginLeft: 10,
+    backgroundColor: '#007AFF',
+    borderRadius: 20,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    justifyContent: 'center',
+    marginBottom: 2, // Minor optical alignment adjustment
+  },
+  sendButtonText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 16,
+  },
 });
