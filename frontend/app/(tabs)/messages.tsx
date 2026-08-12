@@ -12,6 +12,7 @@ interface ChatThread {
   target_user_id: number;
   target_username: string;
   target_profile_picture: string | null;
+  unread_count: number;
 }
 
 export default function MessagesScreen() {
@@ -78,6 +79,7 @@ export default function MessagesScreen() {
               : null;
             
             const isMeLastSender = item.last_sender_id === myId;
+            const unreadCount = Number(item.unread_count || 0);
 
             return (
               <TouchableOpacity
@@ -109,13 +111,25 @@ export default function MessagesScreen() {
                   <View style={styles.row}>
                     <Text style={styles.usernameText}>{item.target_username}</Text>
                     <Text style={styles.timeText}>
-                      {new Date(item.last_message_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      {new Date(item.last_message_time).toLocaleTimeString([], { 
+                        hour: '2-digit', 
+                        minute: '2-digit' 
+                       })}
                     </Text>
                   </View>
-                  
-                  <Text style={styles.messageSnippet} numberOfLines={1}>
-                    {isMeLastSender ? `You: ${item.last_message}` : `Them: ${item.last_message}`}
-                  </Text>
+
+                  <View style={styles.snippetRow}>
+                        <Text style={styles.messageSnippet} numberOfLines={1}>
+                            {isMeLastSender ? `You: ${item.last_message}` : `Them: ${item.last_message}`}
+                        </Text>
+
+                        {/* Red badge for unread messages*/}
+                        {unreadCount > 0 && (
+                        <View style={styles.badge}>
+                                <Text style={styles.badgeText}>{unreadCount}</Text>
+                        </View>
+                        )}
+                    </View>
                 </View>
               </TouchableOpacity>
             );
@@ -142,5 +156,36 @@ const styles = StyleSheet.create({
   row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 4 },
   usernameText: { fontSize: 16, fontWeight: '600', color: '#1C1C1E' },
   timeText: { fontSize: 13, color: '#8E8E93' },
-  messageSnippet: { fontSize: 14, color: '#8E8E93' }
+//   messageSnippet: { fontSize: 14, color: '#8E8E93' },
+  threadMeta: {
+    alignItems: 'flex-end',
+    justifyContent: 'space-between',
+  },
+  badge: {
+    backgroundColor: '#FF3B30', // Native iOS red
+    borderRadius: 12,
+    minWidth: 24,
+    height: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 6,
+    marginTop: 5,
+  },
+  badgeText: {
+    color: '#FFF',
+    fontSize: 12,
+    fontWeight: 'bold',
+  },
+  snippetRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 4,
+  },
+  messageSnippet: {
+    flex: 1,
+    fontSize: 14,
+    color: '#666',
+    marginRight: 8,
+  },
 });

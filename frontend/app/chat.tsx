@@ -12,10 +12,8 @@ interface Message {
 //   senderId?: string; 
   // Optional, but good to have
   content: string;
-
   senderId?: string;
   sender_id?: number;
-
   conversationId?: string;
   conversation_id?: string;
 }
@@ -28,6 +26,23 @@ export default function Chat() {
   const [myId, setMyId] = useState<number | null>(null);
   const [conversationId, setConversationId] = useState<string>('');
   const flatListRef = useRef<FlatList<Message>>(null);
+
+  const markAsRead = async (currentUserId: number, targetId: string) => {
+    try {
+        await fetch(`${SOCKET_URL}/messages/read`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                recipientId: currentUserId,
+                senderId: parseInt(targetId),
+            }),
+        });
+    } catch (error) {
+        console.error('Error clearing unread badges:', error);
+    }
+  };
 
   useEffect(() => {
 
@@ -49,10 +64,9 @@ export default function Chat() {
             setConversationId(roomId);
     
         try {
-            const response = await fetch(`http://192.168.68.66:3000/messages/${roomId}`);
+            const response = await fetch(`${SOCKET_URL}/messages/${roomId}`);
             const data = await response.json();
             if (Array.isArray(data)){
-                // setChatMessages(data);
                 const normalized = data.map((msg: any) => ({
                 content: msg.content,
                 senderId: msg.sender_id.toString(),
@@ -69,11 +83,12 @@ export default function Chat() {
             console.error("Failed to load history", e);
             setChatMessages([]);
         }
+
+        markAsRead(currentUserId, targetUserId as string);
     };
 
     setupChatandHistory();
-
-    }, [targetUserId]);
+}, [targetUserId]);
 
 useEffect(() => {
 

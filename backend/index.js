@@ -171,9 +171,13 @@ app.get('/messages/inbox/:userId', async (req, res) => {
                     lm.sender_id AS last_sender_id,
                     u.id AS target_user_id,
                     u.username AS target_username,
-                    u.profile_picture_url AS target_profile_picture
+                    u.profile_picture_url AS target_profile_picture,
+                    (SELECT COUNT(*)
+                    FROM messages m2
+                    WHERE m2.conversation_id = lm.conversation_id
+                        AND m2.sender_id = u.id
+                        AND m2.is_read = false) AS unread_count
                 FROM latest_messages lm
-                -- Parse the conversation string (e.g. "1_2") to find the OTHER user's ID
                 JOIN users u ON u.id = CASE 
                     WHEN split_part(lm.conversation_id, '_', 1) = $1 THEN split_part(lm.conversation_id, '_', 2)::integer
                     ELSE split_part(lm.conversation_id, '_', 1)::integer
