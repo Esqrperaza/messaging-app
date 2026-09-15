@@ -4,6 +4,10 @@ const { Server } = require("socket.io");
 const { Pool } = require('pg');
 const cors = require('cors');
 require('dotenv').config();
+const path = require('path');
+const multer = require('multer');
+const jwt = require('jsonwebtoken');
+const bcrypt = require('bcryptjs');
 
 const app = express();
 const port = 3000;
@@ -13,8 +17,7 @@ const io = new Server(server, {
         origin: "*",
     }
 });
-const path = require('path');
-const multer = require('multer');
+
 
 app.use(cors());
 app.use(express.json());
@@ -23,8 +26,6 @@ const pool = new Pool({
     connectionString: process.env.DATABASE_URL,
 })
 
-const jwt = require('jsonwebtoken');
-const bcrypt = require('bcryptjs');
 
 const authToken = (req, res, next) => {
     const token = req.header('Authorization')?.split(' ')[1];
@@ -55,6 +56,29 @@ const upload = multer({storage: storage});
 
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
+app.get('/', (req, res) =>{
+    res.send('The Messenger API is running! 🚀');
+});
+
+app.post('/auth/register', async (req, res) => {
+    const { username, bio, age, zip_code, lat, lng, password} = req.body;
+    try {
+        const salt = await bcrypt.genSalt(10);
+        const hashedPassword = await bcrypt.hash(password, salt);
+
+        const query = `
+            INSERT INTO users (username, bio, age, zip_code, lat, lng, password)
+            VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id, username;
+        `;
+        const result = await pool.query(query, [username, bio, age, zip_code, lat, lng, hashedPassword]);
+        const token = jwt.sign({ userId: result.rows[0].id }, process.env.JWT_SECRET, { expiresIn: '7d' });
+        res.status(201).json({ user: result.rows[0], token});
+    } catch(err) {
+        console.error(err);
+        res.status(500).json({ error: 'Registration failed'});
+    }
+});
+
 app.post('/auth/login', async (req, res) => {
 
     console.log("Login attempt received: ", req.body);
@@ -80,11 +104,37 @@ app.post('/auth/login', async (req, res) => {
     }
 });
 
-app.get('/', (req, res) =>{
-    res.send('The Messenger API is running! 🚀');
-});
+// app.post('/login', async (req, res) => {
+//     const { email, password } = req.body;
 
-app.get('/users', async (req, res) => {
+//     try {
+//         const userResult = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
+//         const user = userResult.rows[0];
+
+//         if (!user) {
+//             return res.status(401).json({ message: "User not found" });
+//         }
+//         if (user.password !== password){
+//             return res.status(401).json({ message: "Invalid password" });
+//         }
+
+//         const token = jwt.sign(
+//             { userId: user.id, email: user.email},
+//             process.env.JWT_SECRET, // changed this line
+//             { expiresIn: '24h'}
+//         );
+
+//         console.log(`User ${user.username} logged in successfully!`);
+//         res.json({ token, user: { id: user.id, username: user.username } });
+//     } catch (err) {
+//         console.error(err);
+//         res.status(500).json({ message: "Server error" });
+//     }
+// });
+//multiple login blocks
+
+
+app.get('/users', authToken, async (req, res) => {
     try{
         const results = await pool.query('SELECT * FROM users ORDER BY created_at DESC', []);
         res.json(results.rows);
@@ -94,7 +144,7 @@ app.get('/users', async (req, res) => {
     }
 });
 
-app.get('/users/nearby', async (req, res) => {
+app.get('/users/nearby', authToken, async (req, res) => {
   const { lat, lng, radius } = req.query;
 
   if (!lat || !lng) {
@@ -129,7 +179,24 @@ app.get('/users/nearby', async (req, res) => {
   }
 });
 
-app.get('/messages/:conversationId', async (req, res) =>{
+app.post('/conversations', authToken, async (req, res) => {
+    const { user_one_id, user_two_id } =req.body;
+    try {
+        const query = `
+            INSERT INTO conversations (user_one_id, user_two_id)
+            VALUES ($1, $2)
+            ON CONFLICT (user_one_id, user_two_id) DO UPDATE SET created_at = NOW()
+            RETURNING *;
+        `;
+        const result = await pool.query(query, [user_one_id, user_two_id]);
+        res.json(result.rows[0]);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Could not start conversation' });
+    }
+});
+
+app.get('/messages/:conversationId', authToken, async (req, res) =>{
     try {
         const { conversationId } = req.params;
 
@@ -146,7 +213,7 @@ app.get('/messages/:conversationId', async (req, res) =>{
     }
 });
 
-app.get('/messages/inbox/:userId', async (req, res) => {
+app.get('/messages/inbox/:userId', authToken, async (req, res) => {
     try {
         const {userId } = req.params;
         const query = `
@@ -193,58 +260,7 @@ app.get('/messages/inbox/:userId', async (req, res) => {
     }
 });
 
-app.post('/users', async (req, res) => {
-    const { username, bio, age, gender, zip_code, lat, lng } =req.body;
-    try {
-        const query = `
-            INSERT INTO users (username, bio, age, gender, zip_code, lat, lng)
-            VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *;
-        `;
-        const result = await pool.query(query, [username, bio, age, gender, zip_code, lat, lng]);
-        res.status(201).json(result.rows[0]);
-    } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: 'Failed to create user' });
-    }
-});
-
-app.post('/conversations', async (req, res) => {
-    const { user_one_id, user_two_id } =req.body;
-    try {
-        const query = `
-            INSERT INTO conversations (user_one_id, user_two_id)
-            VALUES ($1, $2)
-            ON CONFLICT (user_one_id, user_two_id) DO UPDATE SET created_at = NOW()
-            RETURNING *;
-        `;
-        const result = await pool.query(query, [user_one_id, user_two_id]);
-        res.json(result.rows[0]);
-    } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: 'Could not start conversation' });
-    }
-});
-
-app.post('/auth/register', async (req, res) => {
-    const { username, bio, age, zip_code, lat, lng, password} = req.body;
-    try {
-        const salt = await bcrypt.genSalt(10);
-        const hashedPassword = await bcrypt.hash(password, salt);
-
-        const query = `
-            INSERT INTO users (username, bio, age, zip_code, lat, lng, password)
-            VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id, username;
-        `;
-        const result = await pool.query(query, [username, bio, age, zip_code, lat, lng, hashedPassword]);
-        const token = jwt.sign({ userId: result.rows[0].id }, process.env.JWT_SECRET, { expiresIn: '7d' });
-        res.status(201).json({ user: result.rows[0], token});
-    } catch(err) {
-        console.error(err);
-        res.status(500).json({ error: 'Registration failed'});
-    }
-});
-
-app.post('/users/:userId/avatar', upload.single('avatar'), async (req, res) =>{
+app.post('/users/:userId/avatar', authToken, upload.single('avatar'), async (req, res) =>{
     try {
         const { userId } = req.params;
         if (!req.file) {
@@ -274,6 +290,34 @@ app.post('/users/:userId/avatar', upload.single('avatar'), async (req, res) =>{
     }
 });
 
+app.post('/users', async (req, res) => {
+    const { username, bio, age, gender, zip_code, lat, lng } =req.body;
+    try {
+        const query = `
+            INSERT INTO users (username, bio, age, gender, zip_code, lat, lng)
+            VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *;
+        `;
+        const result = await pool.query(query, [username, bio, age, gender, zip_code, lat, lng]);
+        res.status(201).json(result.rows[0]);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Failed to create user' });
+    }
+});
+
+io.use((socket, next) => {
+    const token = socket.handshake.auth.token;
+    if (!token) {
+        return next(new Error('Authentication error: Token missing'));
+    }
+
+    jwt.verify(token, process.env.JWT_SECRET, (err, decoded) => {
+        if (err) return next(new Error('Authentication error: Invalid token'));
+        socket.userId = decoded.userId;
+        next();
+    });
+});
+
 io.on('connection', (socket) => {
     console.log('User connected:', socket.id);
 
@@ -284,6 +328,11 @@ io.on('connection', (socket) => {
 
     socket.on('send_message', async (data) => {
         const { conversationId, senderId, content } = data;
+
+        if (parseInt(senderId) !== socket.userId) {
+            console.error(`Socket auth mismatch: ${senderId} attempted to send as ${socket.userId}`);
+        }
+        
         try {
             const parts = conversationId.split('_');
             const parsedSenderId = parseInt(senderId);
@@ -310,34 +359,6 @@ io.on('connection', (socket) => {
     socket.on('disconnect', () => {
         console.log('User disconnected');
     });
-});
-
-app.post('/login', async (req, res) => {
-    const { email, password } = req.body;
-
-    try {
-        const userResult = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
-        const user = userResult.rows[0];
-
-        if (!user) {
-            return res.status(401).json({ message: "User not found" });
-        }
-        if (user.password !== password){
-            return res.status(401).json({ message: "Invalid password" });
-        }
-
-        const token = jwt.sign(
-            { userId: user.id, email: user.email},
-            process.env.JWT_SECRET, // changed this line
-            { expiresIn: '24h'}
-        );
-
-        console.log(`User ${user.username} logged in successfully!`);
-        res.json({ token, user: { id: user.id, username: user.username } });
-    } catch (err) {
-        console.error(err);
-        res.status(500).json({ message: "Server error" });
-    }
 });
 
 server.listen(port, '0.0.0.0', () =>{

@@ -2,11 +2,12 @@ import { Tabs } from 'expo-router';
 import React, {useEffect, useState} from 'react';
 import { View, StyleSheet } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import axios from 'axios';
+// import axios from 'axios';
 import { HapticTab } from '@/components/haptic-tab';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import api from '@/services/api';
 
 const HOST_URL = 'http://192.168.68.66:3000';
 
@@ -19,7 +20,8 @@ export default function TabLayout() {
       const savedId = await AsyncStorage.getItem('userId');
       if (!savedId) return;
 
-      const res = await axios.get(`${HOST_URL}/messages/inbox/${savedId}`);
+      // const res = await axios.get(`${HOST_URL}/messages/inbox/${savedId}`);
+      const res = await api.get(`/messages/inbox/${savedId}`); // new api
       const totalUnread = res.data.reduce(
         (sum: number, thread: any) => sum + Number(thread.unread_count || 0),
         0

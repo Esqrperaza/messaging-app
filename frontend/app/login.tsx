@@ -11,7 +11,6 @@ export default function LoginScreen() {
 
   const handleLogin = async () => {
     try {
-      // Replace Mac's IP address!
       const res = await axios.post('http://192.168.68.66:3000/login', {
         email,
         password,
@@ -26,7 +25,7 @@ export default function LoginScreen() {
       console.log("UserId:", res.data.id);
 
       router.replace('/(tabs)');
-      // Later today, we will save this token so you stay logged in!
+      
     } catch (error) {
       console.log(error);
       Alert.alert("Login Failed", "Check your credentials");
